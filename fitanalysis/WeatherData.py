@@ -173,7 +173,7 @@ class Meteocat(WeatherData):
     base_url = 'https://api.meteo.cat/xema/v1'
     update_url = '/municipis'
  
-    def get_station_metadata(self, date: str = None, state: str = "ope", query: str = None) -> pd.DataFrame:
+    def get_station_metadata(self, date: str = None, state: str = "ope", query: str = None, return_json:bool=False) -> Union[pd.DataFrame, dict]:
         """
         Gets metadata for a weather station.
 
@@ -188,12 +188,20 @@ class Meteocat(WeatherData):
         if not date:
             date = datetime.today().strftime("%Y-%m-%d")
         url = f"/estacions/metadades?estat={state}&data={date}Z"
-        sm = self.get_data(url)
+        sm = self.get_data(url, return_json=return_json)
+        if return_json:
+            return sm
 
         if not query:
             return sm
 
         return sm.query(query)
+
+    def get_specific_station_metadata(self, station_code: str = "", return_json:bool=False) -> Union[pd.DataFrame, dict]:
+        if not station_code:
+            station_code = self.weather_station
+        url = f"/estacions/{station_code}/metadades"
+        return self.get_data(url, return_json=return_json)
 
     def get_variable_codes(self, vars: list = None) -> pd.DataFrame:
         """
@@ -228,11 +236,19 @@ class Meteocat(WeatherData):
         
         url = f"/representatives/metadades/municipis/{postcode}/variables/{variable_code}"
         df = self.get_data(url)
-        if not vars:
-            # get all variable codes
-            return df
-        pass
-
+        return df
+ 
+    def get_variable_statistics(self, variable_code: int = -1, station_code: str = None) -> pd.DataFrame:
+        if variable_code == -1:
+            variable_code = 3000  # Temperature
+        if not station_code:
+            station_code = self.weather_station
+        if not station_code:
+            url = f"/variables/estadistics/anuals/{variable_code}"
+        else:
+            url = f"/variables/estadistics/anuals/{variable_code}?codiEstacio={station_code}"
+        df = self.get_data(url, return_json=True)
+        return df
 
 class MeteocatFitWeatherData(Meteocat):
     """
@@ -245,7 +261,7 @@ class MeteocatFitWeatherData(Meteocat):
     - _file_descriptor (str): A descriptor for the weather data file. Default is 'weather'.
     - _filename (str): The full filename for the weather data file.
     - _data (pd.DataFrame): A dataframe containing the stored weather data.
-    - _dates (list): A list of available dates for the stored weather data.
+    - _dates (set): A list of available dates for the stored weather data.
     - _timezone (str): The timezone to use for the weather data. Default is 'Europe/Madrid'.
 
     Methods:
@@ -255,7 +271,7 @@ class MeteocatFitWeatherData(Meteocat):
     - compose(self, dates:list=None, save:bool = True): Composes weather data for the given dates and adds it to the existing data.
     """
 
-    weather_station = 'YR'
+    weather_station = 'UK'
     weather_variables = pd.DataFrame({
         'code': [32, 33, 34, 35],
         'nom' : ['Temperatura', 'Humitat relativa', 'Pressió atmosfèrica', 'Precipitació'],
@@ -268,7 +284,7 @@ class MeteocatFitWeatherData(Meteocat):
     _file_descriptor = "weather"
     _filename = None
     _data = pd.DataFrame()
-    _dates = list()
+    _dates = set()
     _timezone = 'Europe/Madrid'
     
     def __init__(self, station:str = None, descriptor: str = None, basedir: str = None, tz: str = None):
@@ -366,7 +382,7 @@ class MeteocatFitWeatherData(Meteocat):
         self._data = pd.read_csv(filename)
         self._data['time'] = pd.to_datetime(self._data['time'])
         self._data['time'].dt.tz_convert(self._timezone)
-        self._dates = self._data['time'].apply(lambda x: x.strftime(format='%Y-%m-%d'))
+        self._dates = set(self._data['time'].apply(lambda x: x.strftime(format='%Y-%m-%d')))
 
     def save(self):
         """
@@ -447,7 +463,7 @@ class MeteocatFitWeatherData(Meteocat):
         self._data = pd.concat([self._data, weather_data])
         self._data.sort_values(by='time', ascending=True, inplace=True)
         # Reset the dates for later update calls
-        self._dates = self._data['time'].apply(lambda x: x.strftime(format='%Y-%m-%d'))
+        self._dates = set(self._data['time'].apply(lambda x: x.strftime(format='%Y-%m-%d')))
         if save:
             self.save()
 

@@ -1,7 +1,4 @@
-import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'c:/Software/FitAnalysis'))
 import pandas as pd
-
 import fitanalysis as gfit
 
 def test_overview():

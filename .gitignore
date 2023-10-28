@@ -52,3 +52,6 @@ Thumbs.db
 .vscode/settings.json
 .env
 .code-workspace
+.tcx
+.csv
+

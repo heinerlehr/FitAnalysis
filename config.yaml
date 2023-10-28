@@ -1,9 +1,12 @@
 timezone: "Europe/Madrid"
 
 WeatherData:
-  service: "Meteocat"
-  api_key_name: "meteocat"
-  weather_station : "UK"
+  # service: "Meteocat"
+  # api_key_name: "meteocat"
+  # weather_station : "UK"
+  service: "AEMET"
+  api_key_name: "AEMET"
+  weather_station : "0076"
 
 Logger:
   level: "DEBUG"

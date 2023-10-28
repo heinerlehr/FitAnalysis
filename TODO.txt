@@ -1,3 +1,9 @@
 TODO
 
--  Make downloading data threaded
+- Clean overview
+	- Remove too old data
+	- Select activity
+	- Remove NaN
+	- Maybe filter
+	- Remove outliers
+- Design dashboard data

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from typing import Union, List, Callable
 from fitanalysis.Logger import log, logmsg
+import threading
 
 class WeatherData(ABC):
     """
@@ -324,11 +325,15 @@ class AEMETFitWeatherData(AEMET):
                         df[col.replace('min','')] = (df[col] + df[col_max])/2
             return df.drop(columns=[col for col in df.columns if col.endswith('min') or col.endswith('max')])
 
-        def process_date(date: str)->pd.DataFrame:
+        def process_date(date: str, results: list):
             startDate = f"{date}T00:00:00UTC"
             endDate = f"{date}T23:59:59UTC"
             url = f"/api/valores/climatologicos/diarios/datos/fechaini/{startDate}/fechafin/{endDate}/estacion/{self.weather_station}"
-            data = self.get_data(url,return_json=False)
+            try: 
+                data = self.get_data(url,return_json=False)
+            except ValueError:
+                logmsg(f"No data for day {date}",'INFO')
+                return
             # Select only the columns we want
             data = data[list(self.weather_variables.code)]
             # localise numbers
@@ -347,15 +352,22 @@ class AEMETFitWeatherData(AEMET):
             # Average the columns 'min', 'max'
             data = average_min_max_columns(data)
             # Now we have a dataframe with the different variables for one day
-            return data
+            results.append(data)
         
         weather_data=pd.DataFrame()
+        threads = []
+        results = []
         for date in dates:
-            try:
-                data = process_date(date)
-                weather_data = pd.concat([weather_data,data])
-            except ValueError:
-                print(f"No data for day {date}")
+            thread = threading.Thread(target=process_date, args=(date, results))
+            logmsg(f"Start thread for {date}", 'DEBUG')
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+                logmsg(f"Thread joined", 'DEBUG')
+                thread.join()
+        for result in results:
+            weather_data = pd.concat([weather_data,result])
+
 
         # Shuffle around the columns
         new_order = ['time','date','hour']+list(set(weather_data.columns) - set(['time','date','hour']))
@@ -641,15 +653,15 @@ class MeteocatFitWeatherData(Meteocat):
         if not dates:
             return
 
-        def process_date_code():
+        def process_date_code(data: str = None, code: int = 0, results:list = None):
             acronym = self.weather_variables.loc[self.weather_variables.code==code,'acronym'].iloc[0]
             url = f"/variables/mesurades/{code}/{dp[0]}/{dp[1]}/{dp[2]}?codiEstacio={self.weather_station}"
             try:
-                logmsg(f"Attempting download of {url}", 'DEBUG')
+                logmsg(f"Downloading data for {url}", "DEBUG")
                 data = self.get_data(url,return_json=True)
             except ValueError:
-                print(f"No data for variable {acronym} on day {date}")
-                continue    
+                logmsg(f"No data for variable {acronym} on date {date}", "INFO")
+                return None    
             # Now discard values that are not validated
             data = [item for item in data['lectures'] if item['estat']=='V']
             data = pd.json_normalize(data)
@@ -662,15 +674,24 @@ class MeteocatFitWeatherData(Meteocat):
             data['hour'] = data['time'].apply(lambda x: x.hour)
             # And summarise by the hour
             res = data.groupby('hour').agg({'time': 'first', acronym: 'mean'})
-            return res
+            results.append(res)        
         
         weather_data=pd.DataFrame()
         for date in dates:
             dp = date.split("-")
             day_df=pd.DataFrame({'hour': range(0,24)})
+            threads = []
+            results = []
             for code in self.weather_variables.code:
-                res = process_date_code(date, code)
-                day_df = day_df.join(res, on=['hour'], how='left',rsuffix='_tmp')
+                thread = threading.Thread(target=process_date_code, args=(date, code, results))
+                logmsg(f"Start thread for {date} and {code}", 'DEBUG')
+                thread.start()
+                threads.append(thread)
+            for thread in threads:
+                logmsg(f"Thread joined", 'DEBUG')
+                thread.join()
+            for res in results:
+                day_df = day_df.join(res, on=['hour'], how='left',rsuffix='_tmp')  
                 drop_cols = [col for col in day_df.columns if col.endswith('_tmp')]
                 day_df.drop(columns=drop_cols, inplace=True)
             # Now we have a dataframe with the different variables summarised by the hour for one day

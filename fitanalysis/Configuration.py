@@ -29,6 +29,8 @@ class Configuration(object):
         return cls.instance
 
     def __init__(self):
+        if self._cfg is not None:
+            return
         basedir = self.get_base_dir()
 
         config_processor = ConfigProcessor()
@@ -54,7 +56,7 @@ class Configuration(object):
             # raise KeyError(f"**** ERROR: Configuration file doesn't contain {params}.")
     
     def get_base_dir(self):
-        basedir = os.getcwd()
+        basedir = os.path.dirname(os.path.dirname(__file__))
         return basedir
 
     @staticmethod

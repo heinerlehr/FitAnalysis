@@ -64,7 +64,7 @@ class OverViewFitMetrics:
         'unknown',
         'walking',
         'running',
-        'rowing',
+        'rowing_machine',
         'treadmill',
         'stairs',
         'treadmillwalking'
@@ -145,7 +145,11 @@ class OverViewFitMetrics:
             dict: Dictionary of short column names: original column names
         """
         return OverViewFitMetrics._column_shortnames
-
+    
+    @staticmethod
+    def get_activity_types()->dict:
+        return OverViewFitMetrics._activity_types
+    
     def get_data(self)->pd.DataFrame:
         """Return a copy of the raw data set. Given that we don't want surprises, we'll return a shallow copy
 

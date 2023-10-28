@@ -9,7 +9,7 @@ from pathlib import Path
 import os
 from typing import Union, List, Callable
 import re
-from fitanalysis.OverViewFitMetrics import OverViewFitMetrics
+import fitanalysis as gfit
 
 class DailyFitMetrics:
     """Class that will hold the metrics of a particular day from a Google Fit Takeout 

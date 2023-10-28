@@ -3,7 +3,7 @@ import functools
 import logging
 from fitanalysis.Configuration import Configuration
 
-class Logger:
+class Logger(object):
     """
     A class to create and manage loggers.
     @author: Ankit Sinha
@@ -24,12 +24,20 @@ class Logger:
         'OFF': 'OFF'
     }
 
+    _cfg = None
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(Logger, cls).__new__(cls)
+        return cls.instance
+    
     def __init__(self):
         """
         Initializes the Logger class with default logging level.
         """
-        cfg = Configuration.get_config()
-        level = cfg("Logger","level")
+        if self._cfg is not None:
+            return
+        self._cfg = Configuration.get_config()
+        level = self._cfg("Logger","level")
         if not level:
             level = logging.DEBUG
         elif level in self._logging_level.keys():
@@ -37,14 +45,14 @@ class Logger:
         else:
             raise KeyError(f"**** ERROR: Logging level {level} not recognized. Please check the configuration file.")
         
-        fn=cfg("Logger","filename")
+        fn=self._cfg("Logger","filename")
        
-        if cfg('Logger','format'):
-            format=cfg('Logger','format')
+        if self._cfg('Logger','format'):
+            format=self._cfg('Logger','format')
         else:
             format="%(asctime)s;%(levelname)s;%(message)s"
-        if cfg('Logger','datefmt'):
-            datefmt=cfg('Logger','datefmt')
+        if self._cfg('Logger','datefmt'):
+            datefmt=self._cfg('Logger','datefmt')
         else:    
             datefmt="%Y-%m-%d %H:%M:%S"
         if fn:
